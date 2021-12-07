@@ -3,8 +3,8 @@
 #| Please complete the missing rules below  
 <SOL> :: = { <NumList> }
         |  { scalar-mult <num> <SOL> }
-        |  { intersect <-- fill in -->}
-        |  { union <-- fill in --> } 
+        |  { intersect <SOL> <SOL>}
+        |  { union <SOL> <SOL> } 
         |  <id>
         |  { with {<id> <SOL> } <SOL> } ;; this should be a syntactic sugar
         |  { fun { <id> <id> } <SOL> } ;; a function must have exactly two formal parameters
@@ -24,92 +24,125 @@
 (define-type SET = (Listof Number))
 (define-type SOL
   ;; Please complete the missing parts -- you are NOT allowed to use additional variants (constructors)
-    [Set  SET]
-    [Smult <-- fill in -->]
-    [Inter <-- fill in -->]
-    [Union <-- fill in -->]
-    [Id    Symbol]
-;;    [With  Symbol SOL SOL] -- not to be used, syntactic sugar for ...
-    [Fun   Symbol Symbol SOL]
-    [CallS SOL SOL SOL]
-    [CallD SOL SOL SOL])
+  [Set  SET]
+  [Smult Number SOL] ;; number * (1,1,1,1)
+  [Inter SOL SOL] ;; (1,1,1) x (1,1,1)
+  [Union SOL SOL] ;; (1,1,1) U (1,1,1)
+  [Id    Symbol]
+  ;;    [With  Symbol SOL SOL] -- not to be used, syntactic sugar for ...
+  [Fun   Symbol Symbol SOL]
+  [CallS SOL SOL SOL]
+  [CallD SOL SOL SOL])
 
 ;; ----------------------------------------------------
 ;; Operations on SETs
 ;; Please complete the missing parts, and add comments (comments should specify 
 ;; the role of each procedure, but also describe your work process). Keep your code readable. 
 
-  (: ismember? : Number SET  -> Boolean)
-  (define (ismember? n l)
-    (cond [(null? l) #f]
-          [(= n (first l)) #t]
-          [else (ismember? n (rest l))]))
+(: ismember? : Number SET  -> Boolean)
+(define (ismember? n l) ;; Getting number and list returns true if number is exist in the list else return false 
+  (cond [(null? l) #f] ;; if the list is empty return false
+        [(= n (first l)) #t] ;; if the first number is equals to 'n' return true
+        [else (ismember? n (rest l))])) ;; call recursivly with the rest of the list 
 
-  (test (not (ismember? 1 '(3 4 5))))
-  (test (not (ismember? 1 '( 3 2 3 5 6))))
-  (test (ismember? 1 '(3 4 5 1 3 4)))
-  (test (ismember? 1 '(1)))
+(test (not (ismember? 1 '(3 4 5))))
+(test (not (ismember? 1 '( 3 2 3 5 6))))
+(test (ismember? 1 '(3 4 5 1 3 4)))
+(test (ismember? 1 '(1)))
+(test (not(ismember? 1 '())))
+(test (ismember? 1 '(1 1 1 1 1)))
+(test (ismember? 1 '(0 0 0 0 1)))
+(test (not (ismember? 1 '(7 4))))
 
-  (: remove-duplicates : SET  -> SET)
-  (define (remove-duplicates l)
-    (cond [(or (null? l) (null? (rest l))) l]
-          [<-- fill in -->]
-          [else (cons (first l) (remove-duplicates (rest l)))]))
 
+(: remove-duplicates : SET  -> SET)
+(define (remove-duplicates l) ;; getting a list of numbers
+  (cond [(or (null? l) (null? (rest l))) l] ;; check if there is one item in the list or the list size one return this list
+        [(ismember? (first l) (rest l)) (remove-duplicates (rest l))] ;;check if first item is member in the given list if exist call again without the first item
+        [else (cons (first l) (remove-duplicates (rest l)))])) ;; else continue recursive with remove duplicates
+
+(test (remove-duplicates '(0 0 0 0 1)) => '(0 1))
+(test (remove-duplicates '(0 2 1)) => '(0 2 1))
+(test (remove-duplicates '(1 2 4 6 7 1)) => '(2 4 6 7 1 ))
+(test (remove-duplicates '()) => '())
+(test (remove-duplicates '(2)) => '(2))
+
+
+(: create-sorted-set : SET -> SET)
+(define (create-sorted-set l) ;; getting as argument the list remove duplicate and sort the list
+  (remove-duplicates (sort l <)))
+
+(test (create-sorted-set '(9 8 7 6 5 4 3 2 1)) => '(1 2 3 4 5 6 7 8 9))
+(test (create-sorted-set '(2)) => '(2))
+(test (create-sorted-set '(1 4 6 5 2 3 8 8 9 7)) => '(1 2 3 4 5 6 7 8 9))
+(test (create-sorted-set '(1 2 4 6 2 3 4 6 5)) => '(1 2 3 4 5 6))
+(test (create-sorted-set '()) => '())
+(test (create-sorted-set '(0 0 0 0 0 1 1 1 2 2 2 2 0 0 0 0)) => '(0 1 2))
+
+
+
+(: set-union : SET SET -> SET)
+(define (set-union A B) 
+  (create-sorted-set (append A B))) ;; append the two lists remove all duplicates and then sortin the list
+
+(test (set-union '(0 0) '(1 2)) => '(0 1 2))
+(test (set-union '() '(1 2)) => '(1 2))
+(test (set-union '(0) '()) => '(0))
+(test (set-union '() '()) => '())
+(test (set-union '(1 2 3 4 5 6) '(1 2)) => '(1 2 3 4 5 6))
+(test (set-union '(1 2 0 3 4 5 6) '(9 8 7 7 7 7 7 7)) => '(0 1 2 3 4 5 6 7 8 9))
+
+
+(: set-intersection : SET SET -> SET)
+(define (set-intersection A B)
+  (: mem-filter : Number -> Boolean) ;; inner function returns true if number exist in list
+  (define (mem-filter n)
+    (ismember? n A))
+  (filter mem-filter (create-sorted-set B))) ;; tail reucursion 
   
-  (: create-sorted-set : SET -> SET)
-  (define (create-sorted-set l)
-    (<-- fill in --> (sort l <)))
-  
-  (: set-union : SET SET -> SET)
-  (define (set-union A B)
-    ( <-- fill in -->))
+(test (set-intersection '(1 2 0 3 4 5 6) '(9 8 7 7 7 7 7 7)) => '())
+(test (set-intersection '(1 2 0 3 4 5 6) '(1 2)) => '(1 2))
+(test (set-intersection '(1 2 0 3 4 5 6) '()) => '())
+(test (set-intersection '(1 2 0 3 4 5 7) '(9 8 7 7 7 7 7 7)) => '(7))
+(test (set-intersection '(1 1 1 1) '(11 2 3 1 2 2 2)) => '(1))
 
-  (: set-intersection : SET SET -> SET)
-  (define (set-intersection A B)
-    (: mem-filter : Number -> Boolean)
-    (define (mem-filter n)
-      (ismember? n A))
-    (filter <-- fill in -->))
-  
-
-
+#|
 ;; ---------------------------------------------------------
 ;; Parser
-  ;; Please complete the missing parts, and add comments (comments should specify 
+;; Please complete the missing parts, and add comments (comments should specify 
 ;; choices you make, and also describe your work process). Keep your code readable. 
-  (: parse-sexpr : Sexpr -> SOL)
-  ;; to convert s-expressions into SOLs
-  (define (parse-sexpr sexpr)
-    (match sexpr
-      [(list (number: ns) ...) (<-- fill in --> )] ;; sort and remove-duplicates
-      [(symbol: name) (Id name)]
-      [(cons 'with more)
-       (match sexpr
-         [(list 'with (list (symbol: name) named) body)
-          <-- fill in -->] ;;; there is no With constructor replace with existing constructors
-         [else (error 'parse-sexpr "bad `with' syntax in ~s" sexpr)])]
-      [(cons 'fun more)
-       (match sexpr
-         [(list 'fun (list (symbol: name1) (symbol: name2)) body)
-          (if (eq? name1 name2)
-              (error <-- fill in -->) ;; cannot use the same param name twice
-              (Fun name1 name2 (parse-sexpr body)))]
-         [else (error 'parse-sexpr "bad `fun' syntax in ~s" sexpr)])]
-      [(list 'scalar-mult (number: sc) rhs) (Smult sc (parse-sexpr rhs))]
-      [(list 'intersect lhs rhs) (Inter (parse-sexpr lhs) (parse-sexpr rhs))]
-      [(list 'union lhs rhs) (Union (parse-sexpr lhs) (parse-sexpr rhs))]
-      [(list 'call-static fun arg1 arg2) <-- fill in -->]
-      [<-- fill in -->]
-      [else (error 'parse-sexpr "bad syntax in ~s" sexpr)]))
+(: parse-sexpr : Sexpr -> SOL)
+;; to convert s-expressions into SOLs
+(define (parse-sexpr sexpr)
+  (match sexpr
+    [(list (number: ns) ...) (<-- fill in --> )] ;; sort and remove-duplicates
+    [(symbol: name) (Id name)]
+    [(cons 'with more)
+     (match sexpr
+       [(list 'with (list (symbol: name) named) body)
+        <-- fill in -->] ;;; there is no With constructor replace with existing constructors
+       [else (error 'parse-sexpr "bad `with' syntax in ~s" sexpr)])]
+    [(cons 'fun more)
+     (match sexpr
+       [(list 'fun (list (symbol: name1) (symbol: name2)) body)
+        (if (eq? name1 name2)
+            (error <-- fill in -->) ;; cannot use the same param name twice
+            (Fun name1 name2 (parse-sexpr body)))]
+       [else (error 'parse-sexpr "bad `fun' syntax in ~s" sexpr)])]
+    [(list 'scalar-mult (number: sc) rhs) (Smult sc (parse-sexpr rhs))]
+    [(list 'intersect lhs rhs) (Inter (parse-sexpr lhs) (parse-sexpr rhs))]
+    [(list 'union lhs rhs) (Union (parse-sexpr lhs) (parse-sexpr rhs))]
+    [(list 'call-static fun arg1 arg2) <-- fill in -->]
+    [<-- fill in -->]
+    [else (error 'parse-sexpr "bad syntax in ~s" sexpr)]))
 
     
 
 
-  (: parse : String -> SOL)
-  ;; parses a string containing a SOL expression to a SOL AST
-  (define (parse str)
-    (parse-sexpr (string->sexpr str)))
+(: parse : String -> SOL)
+;; parses a string containing a SOL expression to a SOL AST
+(define (parse str)
+  (parse-sexpr (string->sexpr str)))
 
   
 (test (parse "{1 2 3  4 1 4  4 2 3 4 1 2 3}") => (Set '(1 2 3 4)))
@@ -169,87 +202,87 @@ Evaluation rules:
 
 ;; Types for environments, values, and a lookup function
 
-  (define-type ENV
-    [EmptyEnv]
-    [Extend Symbol VAL ENV])
+(define-type ENV
+  [EmptyEnv]
+  [Extend Symbol VAL ENV])
 
-  (define-type VAL
-    [SetV SET]
-    [FunV Symbol Symbol SOL ENV])
+(define-type VAL
+  [SetV SET]
+  [FunV Symbol Symbol SOL ENV])
 
-  (: lookup : Symbol ENV -> VAL)
-  (define (lookup name env)
-    (cases env
-      [(EmptyEnv) (error 'lookup "no binding for ~s" name)]
-      [(Extend id val rest-env)
-       (if (eq? id name) val (lookup name rest-env))]))
+(: lookup : Symbol ENV -> VAL)
+(define (lookup name env)
+  (cases env
+    [(EmptyEnv) (error 'lookup "no binding for ~s" name)]
+    [(Extend id val rest-env)
+     (if (eq? id name) val (lookup name rest-env))]))
 
 
 ;; Auxiliary procedures for eval 
 ;; Please complete the missing parts, and add comments (comments should specify 
 ;; the role of each procedure, but also describe your work process). Keep your code readable. 
 
-  (: SetV->set : VAL -> SET)
-    (define (SetV->set v)
-      (cases v
-        [(SetV S) S]
-        [else (error 'SetV->set "expects a set, got: ~s" v)]))
+(: SetV->set : VAL -> SET)
+(define (SetV->set v)
+  (cases v
+    [(SetV S) S]
+    [else (error 'SetV->set "expects a set, got: ~s" v)]))
   
-  (: smult-set : Number VAL -> VAL)
-  (define (smult-set n s)
-    (: mult-op : Number -> Number)
-    (define (mult-op k)
-      (* k n))
-    (<-- fill in --> (map <-- fill in -->)))
+(: smult-set : Number VAL -> VAL)
+(define (smult-set n s)
+  (: mult-op : Number -> Number)
+  (define (mult-op k)
+    (* k n))
+  (<-- fill in --> (map <-- fill in -->)))
 
- (: set-op : <-- fill in --> )
-  ;; gets a binary SET operator, and uses it within a SetV
-  ;; wrapper
-  (define (set-op op val1 val2)
-     (SetV (op (SetV->set val1) (SetV->set val2))))
+(: set-op : <-- fill in --> )
+;; gets a binary SET operator, and uses it within a SetV
+;; wrapper
+(define (set-op op val1 val2)
+  (SetV (op (SetV->set val1) (SetV->set val2))))
 
 ;;---------  the eval procedure ------------------------------
 ;; Please complete the missing parts, and add comments (comments should specify 
 ;; the choices you make, and also describe your work process). Keep your code readable. 
 (: eval : SOL ENV -> VAL)
-  ;; evaluates SOL expressions by reducing them to set values
-  (define (eval expr env)
-    (cases expr
-      [(Set S) <-- fill in -->]
-      [(Smult n set) (smult-set <-- fill in -->)]
-      [(Inter l r) (set-op set-intersection <-- fill in -->)]
-      [(Union l r) <-- fill in -->]
-      [(Id name) (lookup name env)]
-      [(Fun bound-id1 bound-id2 bound-body)
-       (FunV bound-id1 bound-id2 bound-body env)]
-      [(CallS fun-expr arg-expr1 arg-expr2)
-       (let ([fval (eval fun-expr env)])
-         (cases fval
-           [(FunV bound-id1 bound-id2 bound-body f-env)
-            <-- fill in -->]
-           [else (error 'eval "`call-static' expects a function, got: ~s"
-                              fval)]))]
-      [(CallD fun-expr arg-expr1 arg-expr2)
-       (let ([fval (eval fun-expr env)])
-         (cases fval
-           [<-- fill in -->]
-           [else (error 'eval "`call-dynamic' expects a function, got: ~s"
-                              fval)]))]))
+;; evaluates SOL expressions by reducing them to set values
+(define (eval expr env)
+  (cases expr
+    [(Set S) <-- fill in -->]
+    [(Smult n set) (smult-set <-- fill in -->)]
+    [(Inter l r) (set-op set-intersection <-- fill in -->)]
+    [(Union l r) <-- fill in -->]
+    [(Id name) (lookup name env)]
+    [(Fun bound-id1 bound-id2 bound-body)
+     (FunV bound-id1 bound-id2 bound-body env)]
+    [(CallS fun-expr arg-expr1 arg-expr2)
+     (let ([fval (eval fun-expr env)])
+       (cases fval
+         [(FunV bound-id1 bound-id2 bound-body f-env)
+          <-- fill in -->]
+         [else (error 'eval "`call-static' expects a function, got: ~s"
+                      fval)]))]
+    [(CallD fun-expr arg-expr1 arg-expr2)
+     (let ([fval (eval fun-expr env)])
+       (cases fval
+         [<-- fill in -->]
+         [else (error 'eval "`call-dynamic' expects a function, got: ~s"
+                      fval)]))]))
 
-  (: createGlobalEnv : -> ENV)
-  (define (createGlobalEnv)
-    (Extend 'second <-- fill in -->
-            (Extend <-- fill in -->
-                    (Extend <-- fill in --> 
-                                    (EmptyEnv)))))
+(: createGlobalEnv : -> ENV)
+(define (createGlobalEnv)
+  (Extend 'second <-- fill in -->
+          (Extend <-- fill in -->
+                  (Extend <-- fill in --> 
+                          (EmptyEnv)))))
 
-  (: run : String -> (U SET VAL))
-  ;; evaluate a SOL program contained in a string
-  (define (run str)
-    (let ([result (eval (parse str) <-- fill in -->)])
-       (cases result
-         [(SetV S) <-- fill in -->]
-         [else <-- fill in -->])))
+(: run : String -> (U SET VAL))
+;; evaluate a SOL program contained in a string
+(define (run str)
+  (let ([result (eval (parse str) <-- fill in -->)])
+    (cases result
+      [(SetV S) <-- fill in -->]
+      [else <-- fill in -->])))
 
 
 (test (run "{1 2 3  4 1 4  4 2 3 4 1 2 3}") => '(1 2 3 4))
@@ -285,4 +318,4 @@ Evaluation rules:
 (test (run "{call-static {1} {2 2} {}}")
       =error> "eval: `call-static' expects a function, got: #(struct:SetV (1))")
 
-
+|#

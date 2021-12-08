@@ -318,4 +318,4 @@ Evaluation rules:
 (test (run "{call-static {1} {2 2} {}}")
       =error> "eval: `call-static' expects a function, got: #(struct:SetV (1))")
 
-|#
+|# 

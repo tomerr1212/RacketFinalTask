@@ -106,7 +106,6 @@
 (test (set-intersection '(1 2 0 3 4 5 7) '(9 8 7 7 7 7 7 7)) => '(7))
 (test (set-intersection '(1 1 1 1) '(11 2 3 1 2 2 2)) => '(1))
 
-#|
 ;; ---------------------------------------------------------
 ;; Parser
 ;; Please complete the missing parts, and add comments (comments should specify 
@@ -115,28 +114,29 @@
 ;; to convert s-expressions into SOLs
 (define (parse-sexpr sexpr)
   (match sexpr
-    [(list (number: ns) ...) (<-- fill in --> )] ;; sort and remove-duplicates
+    ;;checks if it is a list of numbers and if that so calls the Set consturctor to returns sol object
+    [(list (number: ns) ...)(Set (create-sorted-set ns))] ;; sort and remove-duplicates
     [(symbol: name) (Id name)]
     [(cons 'with more)
      (match sexpr
-       [(list 'with (list (symbol: name) named) body)
-        <-- fill in -->] ;;; there is no With constructor replace with existing constructors
+       [(list 'with (list (symbol: name) named) body) 
+        (CallS (Fun name name (parse-sexpr body)) (parse-sexpr named) (parse-sexpr named))] ;; There is no With constructor. Replace it with existing constructors...
        [else (error 'parse-sexpr "bad `with' syntax in ~s" sexpr)])]
     [(cons 'fun more)
      (match sexpr
        [(list 'fun (list (symbol: name1) (symbol: name2)) body)
         (if (eq? name1 name2)
-            (error <-- fill in -->) ;; cannot use the same param name twice
+            (error 'parse-sexpr "`fun' has a duplicate param name in ~s" sexpr) ;; cannot use the same param name twice
             (Fun name1 name2 (parse-sexpr body)))]
        [else (error 'parse-sexpr "bad `fun' syntax in ~s" sexpr)])]
     [(list 'scalar-mult (number: sc) rhs) (Smult sc (parse-sexpr rhs))]
     [(list 'intersect lhs rhs) (Inter (parse-sexpr lhs) (parse-sexpr rhs))]
     [(list 'union lhs rhs) (Union (parse-sexpr lhs) (parse-sexpr rhs))]
-    [(list 'call-static fun arg1 arg2) <-- fill in -->]
-    [<-- fill in -->]
+    [(list 'call-static fun arg1 arg2) (CallS (parse-sexpr fun) (parse-sexpr arg1) (parse-sexpr arg2))]
+    [(list 'call-dynamic fun arg1 arg2) (CallD (parse-sexpr fun) (parse-sexpr arg1) (parse-sexpr arg2))]
     [else (error 'parse-sexpr "bad syntax in ~s" sexpr)]))
 
-    
+   
 
 
 (: parse : String -> SOL)
@@ -167,7 +167,6 @@
               {fun {x} S}}")
       =error> "parse-sexpr: bad `fun' syntax in (fun (x) S)") ;; functions require two formal parameters
 
-  
 
 ;;-----------------------------------------------------
 ;; Evaluation 
@@ -190,11 +189,11 @@ Evaluation rules:
     eval({with {x E1} E2},env) = eval(E2,extend(x,eval(E1,env),env))
     eval({fun {x1 x2} E},env)  = <{fun {x1 x2} E}, env>
     eval({call-static E-op E1 E2},env)
-             = eval(Ef,extend(x2,eval(E2,env) ... <-- fill in --> )
+             = eval(Ef,extend(x2,eval(E2,env) ... , ,envf )
                                if eval(E-op,env) = <{fun {x1 x2} Ef}, envf>
              = error!          otherwise
     eval({call-dynamic E-op E1 E2},env)
-             = <-- fill in -->
+             =  =eval(Ef,extend(x2,eval(E2,env),extend(x1,eval(E1,env),env))
                                if eval(E-op,env) = <{fun {x1 x2} Ef}, envf>
              = error!          otherwise
 
@@ -202,6 +201,7 @@ Evaluation rules:
 
 ;; Types for environments, values, and a lookup function
 
+ 
 (define-type ENV
   [EmptyEnv]
   [Extend Symbol VAL ENV])
@@ -233,9 +233,9 @@ Evaluation rules:
   (: mult-op : Number -> Number)
   (define (mult-op k)
     (* k n))
-  (<-- fill in --> (map <-- fill in -->)))
+  (SetV (map mult-op ( SetV->set s))))
 
-(: set-op : <-- fill in --> )
+(: set-op : (SET SET -> SET) VAL VAL -> VAL )
 ;; gets a binary SET operator, and uses it within a SetV
 ;; wrapper
 (define (set-op op val1 val2)
@@ -248,10 +248,10 @@ Evaluation rules:
 ;; evaluates SOL expressions by reducing them to set values
 (define (eval expr env)
   (cases expr
-    [(Set S) <-- fill in -->]
-    [(Smult n set) (smult-set <-- fill in -->)]
-    [(Inter l r) (set-op set-intersection <-- fill in -->)]
-    [(Union l r) <-- fill in -->]
+    [(Set S)(SetV S)]
+    [(Smult n set) (smult-set  n (eval set env))]
+    [(Inter l r) (set-op set-intersection  (eval l env) (eval r env))]
+    [(Union l r) (set-op set-union (eval l env) (eval r env))]
     [(Id name) (lookup name env)]
     [(Fun bound-id1 bound-id2 bound-body)
      (FunV bound-id1 bound-id2 bound-body env)]
@@ -259,30 +259,31 @@ Evaluation rules:
      (let ([fval (eval fun-expr env)])
        (cases fval
          [(FunV bound-id1 bound-id2 bound-body f-env)
-          <-- fill in -->]
+          (eval bound-body (Extend bound-id2 (eval arg-expr2 env) (Extend bound-id1 (eval arg-expr1 env) f-env)))]
          [else (error 'eval "`call-static' expects a function, got: ~s"
                       fval)]))]
     [(CallD fun-expr arg-expr1 arg-expr2)
      (let ([fval (eval fun-expr env)])
        (cases fval
-         [<-- fill in -->]
+         [ (FunV bound-id1 bound-id2 bound-body f-env)
+           (eval bound-body (Extend bound-id2 (eval arg-expr2 env) (Extend bound-id1 (eval arg-expr1 env) f-env)))]
          [else (error 'eval "`call-dynamic' expects a function, got: ~s"
                       fval)]))]))
 
 (: createGlobalEnv : -> ENV)
 (define (createGlobalEnv)
-  (Extend 'second <-- fill in -->
-          (Extend <-- fill in -->
-                  (Extend <-- fill in --> 
+  (Extend 'second (eval(parse "{fun {p spare-param}{call-static p {fun{a b} b}{}}}") (EmptyEnv))
+          (Extend 'first (eval(parse "{fun {p spare-param} {call-static p {fun{a b} a}{}}}") (EmptyEnv))
+                  (Extend 'cons (eval (parse "{fun {f s} {fun {foo spare-param}{call-static foo f s}}}") (EmptyEnv))
                           (EmptyEnv)))))
 
 (: run : String -> (U SET VAL))
 ;; evaluate a SOL program contained in a string
 (define (run str)
-  (let ([result (eval (parse str) <-- fill in -->)])
+  (let ([result (eval (parse str)(createGlobalEnv))])
     (cases result
-      [(SetV S) <-- fill in -->]
-      [else <-- fill in -->])))
+      [(SetV S) S]
+      [else (error 'run "evaluation returned a non-number: ~s" result)])))
 
 
 (test (run "{1 2 3  4 1 4  4 2 3 4 1 2 3}") => '(1 2 3 4))
@@ -318,4 +319,39 @@ Evaluation rules:
 (test (run "{call-static {1} {2 2} {}}")
       =error> "eval: `call-static' expects a function, got: #(struct:SetV (1))")
 
-|# 
+
+(test (run "{with {p {call-static cons {1 2 3} {4 2 3}}}
+ {with {foo {fun {x y} {intersect x y}}}
+ {call-static p foo {}}}}")
+      => '(2 3))
+
+
+#|
+Qustion 6:
+
+
+
+1) I have this types:
+- SOL: language for sets
+- Set: List of numbers
+- ENV: for the extension of the environment
+- VAL: Can get set or function
+
+2) to replace 'with' I used  (CallS (Fun name name (parse-sexpr body)) (parse-sexpr named) (parse-sexpr named))
+   I used call-static becuase the value can not be changed after the function is defined
+
+3) This function use recursion: ismember?,remove-duplicates,set-union,set-intersection,create-sorted-set,Pros for tail-recursion:
+   The tail reucrsuin advantage is the time efficency saving.
+
+4)I used call static because if i used call dynamic I would get an error
+
+(: createGlobalEnv : -> ENV)
+(define (createGlobalEnv)
+  (Extend 'second (eval(parse "{fun {p spare-param}{call-static p {fun{a b} b}{}}}") (EmptyEnv))
+          (Extend 'first (eval(parse "{fun {p spare-param} {call-static p {fun{a b} a}{}}}") (EmptyEnv))
+                  (Extend 'cons (eval (parse "{fun {f s} {fun {foo spare-param}{call-static foo f s}}}") (EmptyEnv))
+                          (EmptyEnv)))))
+
+5)  if its was dynamic, it was running with the global env and will throw exception for no binding for first or second
+
+|#

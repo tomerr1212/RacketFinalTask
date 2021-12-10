@@ -233,7 +233,7 @@ Evaluation rules:
   (: mult-op : Number -> Number)
   (define (mult-op k)
     (* k n))
-  (SetV (map mult-op ( SetV->set s))))
+  (SetV (map mult-op ( SetV->set s)))) ;;need to return VAL so I used SetV to turn it into VAL
 
 (: set-op : (SET SET -> SET) VAL VAL -> VAL )
 ;; gets a binary SET operator, and uses it within a SetV
@@ -249,23 +249,25 @@ Evaluation rules:
 (define (eval expr env)
   (cases expr
     [(Set S)(SetV S)]
-    [(Smult n set) (smult-set  n (eval set env))]
-    [(Inter l r) (set-op set-intersection  (eval l env) (eval r env))]
-    [(Union l r) (set-op set-union (eval l env) (eval r env))]
-    [(Id name) (lookup name env)]
+    [(Smult n set) (smult-set  n (eval set env))] ;;needed to eval the output of the function
+    [(Inter l r) (set-op set-intersection  (eval l env) (eval r env))] ;;eval left and rval right
+    [(Union l r) (set-op set-union (eval l env) (eval r env))] ;; set-op set-union after we eval left and right 
+    [(Id name) (lookup name env)] 
     [(Fun bound-id1 bound-id2 bound-body)
      (FunV bound-id1 bound-id2 bound-body env)]
     [(CallS fun-expr arg-expr1 arg-expr2)
      (let ([fval (eval fun-expr env)])
        (cases fval
          [(FunV bound-id1 bound-id2 bound-body f-env)
-          (eval bound-body (Extend bound-id2 (eval arg-expr2 env) (Extend bound-id1 (eval arg-expr1 env) f-env)))]
+          ;eval(Ef,extend(x2,eval(E2,env) ... , ,envf )
+          (eval bound-body (Extend bound-id2 (eval arg-expr2 env) (Extend bound-id1 (eval arg-expr1 env) f-env)))] 
          [else (error 'eval "`call-static' expects a function, got: ~s"
                       fval)]))]
     [(CallD fun-expr arg-expr1 arg-expr2)
-     (let ([fval (eval fun-expr env)])
+     (let ([fval (eval fun-expr env)])         ;;if eval(E-op,env) = <{fun {x1 x2} Ef}, envf>
        (cases fval
          [ (FunV bound-id1 bound-id2 bound-body f-env)
+           ;;eval(Ef,extend(x2,eval(E2,env),extend(x1,eval(E1,env),env))
            (eval bound-body (Extend bound-id2 (eval arg-expr2 env) (Extend bound-id1 (eval arg-expr1 env) f-env)))]
          [else (error 'eval "`call-dynamic' expects a function, got: ~s"
                       fval)]))]))
@@ -325,6 +327,10 @@ Evaluation rules:
  {call-static p foo {}}}}")
       => '(2 3))
 
+(test (run "{with {x {union {1} {5 9 10}}}
+                 {call-dynamic {fun {x y} {intersect x y}} {scalar-mult 2 x} {4 5 9}}}")=> '())
+
+(test (run "{intersect {1 6 7 8} {5 6 7 8 9 10}}") => '(6 7 8))
 
 #|
 Qustion 6:
